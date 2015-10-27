@@ -4,8 +4,12 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#include "../tools.h"
 
 int main(int argc, char **argv) {
 	int		sockfd, connfd;
+
+
+
 
 }
