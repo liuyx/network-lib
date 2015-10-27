@@ -12,12 +12,12 @@ int main(int argc, char **argv) {
 
 	const char *hostname = argv[1];
 	const char *service  = argv[2];
+	char recvline[MAXLINE + 1];
+	int n;
 
 	int sockfd = tcp_connect(hostname, service);
 	if (sockfd < 0)
 		err_quit("tcp_connect error for %s. %s\n",hostname, service);
-	char recvline[MAXLINE + 1];
-	int n;
 
 	while ( (n = read(sockfd, recvline, MAXLINE)) > 0) {
 		recvline[n] = 0;

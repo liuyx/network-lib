@@ -14,7 +14,7 @@ int main(int argc,char **argv){
 
 	bzero(&servaddr,sizeof(struct sockaddr_in));
 	servaddr.sin_family = AF_INET;
-	servaddr.sin_port = htons(13);
+	servaddr.sin_port = htons(9877);
 	servaddr.sin_addr.s_addr = INADDR_ANY;
 
 	if (bind(sockfd,(struct sockaddr *)&servaddr,sizeof(servaddr)) < 0)
@@ -28,12 +28,12 @@ int main(int argc,char **argv){
 	for ( ; ; ) {
 		if ( (connfd = accept(sockfd, (struct sockaddr *)&servaddr,&socklen)) < 0)
 			err_sys("accept");
-			printf("accept a sockfd");
 			ticks = time(NULL);
 			snprintf(buff,MAXLINE,"%.24s\r\n",ctime(&ticks));
 
-			if (write(connfd, buff, strlen(buff) != strlen(buff)))
+			if (write(connfd, buff, strlen(buff)) != strlen(buff))
 				err_sys("write");
+			close(connfd);
 	}
 	exit(0);
 }
