@@ -7,6 +7,8 @@
 #include <stdarg.h>
 #include <errno.h>
 
+#define MAXLINE 1024
+
 void err_sys(const char *fmt,...);
 void err_quit(const char *fmt,...);
 
