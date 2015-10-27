@@ -28,12 +28,12 @@ int main(int argc,char **argv){
 	for ( ; ; ) {
 		if ( (connfd = accept(sockfd, (struct sockaddr *)&servaddr,&socklen)) < 0)
 			err_sys("accept");
-			ticks = time(NULL);
-			snprintf(buff,MAXLINE,"%.24s\r\n",ctime(&ticks));
+		ticks = time(NULL);
+		snprintf(buff,MAXLINE,"%.24s\r\n",ctime(&ticks));
 
-			if (write(connfd, buff, strlen(buff)) != strlen(buff))
-				err_sys("write");
-			close(connfd);
+		if (write(connfd, buff, strlen(buff)) != strlen(buff))
+			err_sys("write");
+		close(connfd);
 	}
 	exit(0);
 }
