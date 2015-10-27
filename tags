@@ -1,0 +1,4 @@
+err_doit	tools.c	/^void err_doit(int errorflag, int error, const char/
+err_quit	tools.c	/^void err_quit(const char *fmt, ...) {$/
+err_sys	tools.c	/^void err_sys(const char *fmt, ...) {$/
+tcp_connect	tools.c	/^int tcp_connect(const char *host,const char *servi/

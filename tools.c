@@ -9,14 +9,14 @@ void err_doit(int errorflag, int error, const char *fmt, va_list ap) {
 	}
 	strcat(buff,"\n");
 	fflush(stdout);
-	fprintf(buff,stderr);
+	fputs(buff,stderr);
 	fflush(NULL);
 }
 
 void err_sys(const char *fmt, ...) {
 	va_list ap;
 	va_start(ap,fmt);
-	err_doit(0,0,fmt,ap);
+	err_doit(1,errno,fmt,ap);
 	va_end(ap);
 	exit(1);
 }
