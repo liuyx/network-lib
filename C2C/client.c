@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/select.h>
 
 #include "../tools.h"
 
@@ -14,20 +15,31 @@ int main(int argc, char **argv) {
 	const char *service  = argv[2];
 	char recvline[MAXLINE + 1];
 	int n;
+	fd_set rset;
+
 
 	int sockfd = tcp_connect(hostname, service);
 	if (sockfd < 0)
 		err_quit("tcp_connect error for %s. %s\n",hostname, service);
 
-	n = readn(sockfd, recvline, MAXLINE);
-	if (n < 0)
-		err_sys("read error");
+	FD_ZERO(&rset);
+	FD_SET(sockfd, &rset);
 
-	recvline[n] = 0;
-	if (fputs(recvline,stdout) == EOF)
-		err_sys("fputs");
+	select(sockfd + 1,&rset,NULL,NULL,NULL);
 
-	if (n < 0)
-		err_sys("read error");
+	if (FD_ISSET(sockfd,&rset)) {
+		n = readn(sockfd, recvline, MAXLINE);
+		if (n < 0)
+			err_sys("read error");
+
+		recvline[n] = 0;
+		if (fputs(recvline,stdout) == EOF)
+			err_sys("fputs");
+
+		if (n < 0)
+			err_sys("read error");
+	}
+
+
 	return 0;
 }
