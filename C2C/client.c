@@ -19,11 +19,13 @@ int main(int argc, char **argv) {
 	if (sockfd < 0)
 		err_quit("tcp_connect error for %s. %s\n",hostname, service);
 
-	while ( (n = read(sockfd, recvline, MAXLINE)) > 0) {
-		recvline[n] = 0;
-		if (fputs(recvline,stdout) == EOF)
-			err_sys("fputs");
-	}
+	n = readn(sockfd, recvline, MAXLINE);
+	if (n < 0)
+		err_sys("read error");
+
+	recvline[n] = 0;
+	if (fputs(recvline,stdout) == EOF)
+		err_sys("fputs");
 
 	if (n < 0)
 		err_sys("read error");

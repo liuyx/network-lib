@@ -8,14 +8,22 @@ int main(int argc,char **argv){
 	struct sockaddr_in servaddr;
 	socklen_t socklen;
 	time_t ticks;
+	int on = 1;
+
+	//if (daemon(0,0) < 0)
+	//	err_sys("daemonize");
 
 	if ( (sockfd = socket(AF_INET,SOCK_STREAM,0)) < 0)
 		err_sys("socket");
+
 
 	bzero(&servaddr,sizeof(struct sockaddr_in));
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_port = htons(9877);
 	servaddr.sin_addr.s_addr = INADDR_ANY;
+
+	if (setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR, &on, sizeof(on)) < 0)
+		err_sys("setsockopt");
 
 	if (bind(sockfd,(struct sockaddr *)&servaddr,sizeof(servaddr)) < 0)
 		err_sys("bind");

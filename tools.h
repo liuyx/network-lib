@@ -19,4 +19,7 @@ void err_quit(const char *fmt,...);
 
 int tcp_connect(const char *fmt,const char *service);
 
+ssize_t readn(int fd, void *ptr, size_t n);
+ssize_t writen(int fd, void *ptr, size_t n);
+
 #endif
