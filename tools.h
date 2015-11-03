@@ -14,6 +14,8 @@
 #define MAXLINE 1024
 #define LISTNQ 1024
 
+#define max(a,b) (((a) > (b)) ? (a) : (b))
+
 void err_sys(const char *fmt,...);
 void err_quit(const char *fmt,...);
 
