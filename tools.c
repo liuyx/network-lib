@@ -96,3 +96,44 @@ ssize_t writen(int fd, void *buf, size_t n) {
 
 	return n;
 }
+
+static ssize_t myread(int fd, void *ptr, size_t len) {
+	static char buff[MAXLINE];
+	static size_t index;
+	ssize_t n;
+	if ( (strlen(buff) - index) <= len) {
+		index = 0;
+		bzero(buff,sizeof(buff));
+		while ( (n = read(fd, buff, sizeof(buff))) < 0) {
+			if (n < 0 && errno == EINTR)
+				continue;
+			else
+				return -1;
+		}
+	}
+
+	memcpy(ptr,buff,len);
+	index += len;
+
+	return len;
+}
+
+ssize_t readline(int fd, void *ptr, size_t len) {
+	ssize_t n;
+	ssize_t result = 0;
+	char *cptr = ptr;
+again:
+	while ( (n = myread(fd, cptr, 1)) > 0) {
+		if (*cptr++ == '\n')
+			break;
+		else
+			result++;
+	}
+	if (n < 0) {
+		if (errno == EINTR)
+			goto again;
+		else
+			err_sys("read");
+	}
+	return result;
+}
