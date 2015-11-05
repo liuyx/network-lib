@@ -8,35 +8,54 @@
 #include "../tools.h"
 
 void doit(int sockfd, FILE *fp) {
-	char recvline[MAXLINE];
-	char sendline[MAXLINE];
-	int n;
-	size_t maxfd;
-	fd_set rset;
+	char	buff[MAXLINE];
+	int		maxfd, n, stdineof;
+	fd_set  rset;
 
+	stdineof = 0;
 	FD_ZERO(&rset);
 
 	for ( ; ; ) {
+		if (stdineof == 0)
+			FD_SET(fileno(fp), &rset);
 		FD_SET(sockfd, &rset);
-		FD_SET(fileno(fp),&rset);
-		maxfd = max(sockfd,fileno(fp));
-		select(maxfd + 1,&rset,NULL,NULL,NULL);
+		maxfd = max(sockfd, fileno(fp));
 
-		if (FD_ISSET(sockfd,&rset)) {
-			if ( (n = readline(sockfd, recvline, MAXLINE)) > 0) {
-				if (fputs(recvline,stdout) == EOF)
-					err_sys("fputs");
+		if (select(maxfd + 1, &rset, NULL, NULL, NULL) < 0)
+			err_sys("select");
+
+		if (FD_ISSET(sockfd, &rset)) {
+read_sock_again:
+			if ( (n = read(sockfd, buff, MAXLINE)) < 0) {
+				if (errno == EINTR)
+					goto read_sock_again;
+				else
+					err_sys("read");
+			} else if (n == 0) {
+				if (stdineof == 1)
+					return;
+				else
+					err_sys("server be killed");
 			}
-			if (n < 0)
-				err_sys("read error");
-			else if (n == 0)
-				err_quit("server terminated error");
+			if (write(fileno(stdout),buff, n) != n)
+				err_sys("write");
+		} else if (FD_ISSET(fileno(fp), &rset)) {
+read_fp_again:
+			if ( (n = read(fileno(fp), buff, MAXLINE)) < 0) {
+				if (errno == EINTR)
+					goto read_fp_again;
+				else
+					err_sys("read fp");
+			} else if (n == 0) {
+				stdineof = 1;
+				FD_CLR(fileno(fp),&rset);
+				if (shutdown(sockfd, SHUT_WR) < 0)
+					err_sys("shutdown");
+				continue;
+			}
 
-		} else if (FD_ISSET(fileno(fp),&rset)) {
-			fgets(sendline,MAXLINE,fp);
-			printf("man: %s\n", sendline);
-			if (writen(sockfd, sendline, strlen(sendline)) < 0)
-					err_sys("writen error");
+			if (writen(sockfd, buff, n) != n) 
+				err_sys("writen sockfd");
 		}
 	}
 }

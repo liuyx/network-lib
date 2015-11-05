@@ -5,33 +5,51 @@
 #include <arpa/inet.h>
 
 void doit(int sockfd,FILE *fp) {
-	int		maxfd;
+	int		maxfd, stdineof, n;
+	char	buff[MAXLINE];
 	fd_set	rset;
-	int 	n;
-	char	sendline[MAXLINE], recvline[MAXLINE];
 
+	stdineof = 0;
 	FD_ZERO(&rset);
 
-	while(1) {
-		maxfd = max(sockfd,fileno(fp));
-		FD_SET(fileno(fp),&rset);
+	for ( ; ; ) {
+		if (stdineof == 0)
+			FD_SET(fileno(fp),&rset);
 		FD_SET(sockfd, &rset);
+		maxfd = max(sockfd, fileno(fp));
 
-		select(maxfd + 1, &rset, NULL, NULL, NULL);
+		if (select(maxfd + 1, &rset, NULL, NULL, NULL) < 0)
+			err_sys("select");
 
 		if (FD_ISSET(sockfd,&rset)) {
-			if ( (n = readline(sockfd,recvline, sizeof(recvline))) < 0)
-				err_sys("readn");
-			else if (n == 0)
+read_sock_again:
+			if ( (n = read(sockfd, buff, MAXLINE)) < 0) {
+				if (errno == EINTR)
+					goto read_sock_again;
+				else
+					err_sys("read");
+			} else if (n == 0) 
 				return;
-			if (fputs(recvline,stdout) == EOF)
-				err_sys("fputs");
+
+			if (write(fileno(fp),buff, n) < 0)
+				err_sys("write");
+
 		} else if (FD_ISSET(fileno(fp),&rset)) {
-			if (fgets(sendline,sizeof(sendline),fp) == NULL)
-				return;
-			printf("woman: %s\n", sendline);
-			if (writen(sockfd, sendline, strlen(sendline)) < 0)
-				err_sys("writen");
+read_fp_again:
+			if ( (n = read(fileno(fp), buff, MAXLINE)) < 0) {
+				if (errno == EINTR)
+					goto read_fp_again;
+				err_sys("read");
+			} else if (n == 0) {
+				stdineof = 1;
+				if (shutdown(sockfd, SHUT_WR) < 0)
+					err_sys("shutdown");
+				FD_CLR(fileno(fp),&rset);
+				continue;
+			}
+
+			if (writen(sockfd, buff, n) != n) 
+				err_quit("writen error");
 		}
 	}
 }
