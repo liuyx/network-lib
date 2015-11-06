@@ -25,4 +25,13 @@ ssize_t readn(int fd, void *ptr, size_t n);
 ssize_t writen(int fd, void *ptr, size_t n);
 ssize_t readline(int fd, void *ptr, size_t maxlen);
 
+enum type {
+	SERVER,CLIENT
+};
+
+/**
+ * start communication
+ */
+void start_communication(enum type, const char *name, int sockfd, FILE *fp);
+
 #endif

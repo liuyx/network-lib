@@ -4,55 +4,55 @@
 #include <sys/select.h>
 #include <arpa/inet.h>
 
-void doit(int sockfd,FILE *fp) {
-	int		maxfd, stdineof, n;
-	char	buff[MAXLINE];
-	fd_set	rset;
-
-	stdineof = 0;
-	FD_ZERO(&rset);
-
-	for ( ; ; ) {
-		if (stdineof == 0)
-			FD_SET(fileno(fp),&rset);
-		FD_SET(sockfd, &rset);
-		maxfd = max(sockfd, fileno(fp));
-
-		if (select(maxfd + 1, &rset, NULL, NULL, NULL) < 0)
-			err_sys("select");
-
-		if (FD_ISSET(sockfd,&rset)) {
-read_sock_again:
-			if ( (n = read(sockfd, buff, MAXLINE)) < 0) {
-				if (errno == EINTR)
-					goto read_sock_again;
-				else
-					err_sys("read");
-			} else if (n == 0) 
-				return;
-
-			if (write(fileno(fp),buff, n) < 0)
-				err_sys("write");
-
-		} else if (FD_ISSET(fileno(fp),&rset)) {
-read_fp_again:
-			if ( (n = read(fileno(fp), buff, MAXLINE)) < 0) {
-				if (errno == EINTR)
-					goto read_fp_again;
-				err_sys("read");
-			} else if (n == 0) {
-				stdineof = 1;
-				if (shutdown(sockfd, SHUT_WR) < 0)
-					err_sys("shutdown");
-				FD_CLR(fileno(fp),&rset);
-				continue;
-			}
-
-			if (writen(sockfd, buff, n) != n) 
-				err_quit("writen error");
-		}
-	}
-}
+//void doit(int sockfd,FILE *fp) {
+//	int		maxfd, stdineof, n;
+//	char	buff[MAXLINE];
+//	fd_set	rset;
+//
+//	stdineof = 0;
+//	FD_ZERO(&rset);
+//
+//	for ( ; ; ) {
+//		if (stdineof == 0)
+//			FD_SET(fileno(fp),&rset);
+//		FD_SET(sockfd, &rset);
+//		maxfd = max(sockfd, fileno(fp));
+//
+//		if (select(maxfd + 1, &rset, NULL, NULL, NULL) < 0)
+//			err_sys("select");
+//
+//		if (FD_ISSET(sockfd,&rset)) {
+//read_sock_again:
+//			if ( (n = read(sockfd, buff, MAXLINE)) < 0) {
+//				if (errno == EINTR)
+//					goto read_sock_again;
+//				else
+//					err_sys("read");
+//			} else if (n == 0) 
+//				return;
+//
+//			if (write(fileno(fp),buff, n) < 0)
+//				err_sys("write");
+//
+//		} else if (FD_ISSET(fileno(fp),&rset)) {
+//read_fp_again:
+//			if ( (n = read(fileno(fp), buff, MAXLINE)) < 0) {
+//				if (errno == EINTR)
+//					goto read_fp_again;
+//				err_sys("read");
+//			} else if (n == 0) {
+//				stdineof = 1;
+//				if (shutdown(sockfd, SHUT_WR) < 0)
+//					err_sys("shutdown");
+//				FD_CLR(fileno(fp),&rset);
+//				continue;
+//			}
+//
+//			if (writen(sockfd, buff, n) != n) 
+//				err_quit("writen error");
+//		}
+//	}
+//}
 
 
 int main(int argc,char **argv){
@@ -99,7 +99,9 @@ int main(int argc,char **argv){
 		printf("connect from %s: %d\n",inet_ntop(AF_INET,&servaddr.sin_addr,buff,sizeof(buff)), ntohs(servaddr.sin_port));
 
 
-		doit(connfd,stdin);
+		//doit(connfd,stdin);
+
+		start_communication(CLIENT, "server", sockfd, stdin);
 
 		printf("close\n");
 

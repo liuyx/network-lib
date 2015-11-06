@@ -138,3 +138,64 @@ ssize_t readline(int fd, void *vptr, size_t maxlen) {
 	*ptr = 0;
 	return n;
 }
+
+//--------------------im function-----------------------
+
+static inline int read_retry_on_eintr(int fd, void *buff, size_t len) {
+	int n;
+again:
+	if ( (n = read(fd, buff, len)) < 0) {
+		if (errno == EINTR)
+			goto again;
+		else
+			err_sys("read");
+	}
+
+	return n;
+}
+
+// 1. simple input from stdin, and write to other
+void start_communication(enum type type, const char *self_name, int sockfd, FILE *input) {
+	char	buff[MAXLINE];
+	int		n, stdineof = 0;
+	int		input_fd = fileno(input);
+	size_t	maxfd = max(sockfd, input_fd);
+	fd_set	rset;
+
+	FD_ZERO(&rset);
+
+	for ( ; ; ) {
+		if (stdineof == 0)
+			FD_SET(input_fd, &rset);
+		FD_SET(sockfd, &rset);
+
+		if (select(maxfd + 1, &rset, NULL, NULL, NULL) < 0)
+			err_sys("select");
+
+		if (FD_ISSET(sockfd, &rset)) {
+			if ( (n = read_retry_on_eintr(sockfd, buff, MAXLINE)) == 0) {
+				if (stdineof == 1) 
+					return;
+				else {
+					if (type == SERVER)
+						return;
+					else
+						err_sys("the opsite terminated prematurely");
+				}
+			} 
+			if (write(fileno(stdout), buff, n) != n)
+				err_sys("write");
+		} else if (FD_ISSET(input_fd, &rset)) {
+			if ( (n = read_retry_on_eintr(input_fd, buff, MAXLINE)) == 0) {
+				stdineof = 1;
+				FD_CLR(input_fd,&rset);
+				if (shutdown(input_fd, SHUT_WR) < 0)
+					err_sys("shutdown");
+				continue;
+			}
+
+			if (writen(sockfd, buff, n) != n)
+				err_quit("writen sockfd error");
+		}
+	}
+}
