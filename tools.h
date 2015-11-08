@@ -10,6 +10,8 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netdb.h>
+#include <fcntl.h>
+#include <signal.h>
 
 #define MAXLINE 1024
 #define LISTNQ 1024
@@ -25,13 +27,31 @@ ssize_t readn(int fd, void *ptr, size_t n);
 ssize_t writen(int fd, void *ptr, size_t n);
 ssize_t readline(int fd, void *ptr, size_t maxlen);
 
+void heartbeat_cli(int sockfd, int nsec, int maxnprobes);
+
+void heartbeat_serv(int sockfd, int nsec, int maxnprobes);
+
+
+void heartbeat(int sockfd, int nsec);
+
 enum type {
 	SERVER,CLIENT
 };
 
 /**
+  *
+  * alias for void (*sig_func)(int) function pointer
+  */
+typedef void sig_func(int);
+
+/**
+  * an simply function wrap for sigaction
+  */
+sig_func *my_signal(int signo, sig_func *func);
+
+/**
  * start communication
  */
-void start_communication(enum type, const char *name, int sockfd, FILE *fp);
+void start_communication(enum type, const char *self_name, const char *other_name, int sockfd, FILE *fp);
 
 #endif

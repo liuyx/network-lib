@@ -155,47 +155,185 @@ again:
 }
 
 // 1. simple input from stdin, and write to other
-void start_communication(enum type type, const char *self_name, int sockfd, FILE *input) {
+void start_communication(enum type type, const char *self_name,const char *other_name, int sockfd, FILE *input) {
 	char	buff[MAXLINE];
-	int		n, stdineof = 0;
-	int		input_fd = fileno(input);
-	size_t	maxfd = max(sockfd, input_fd);
+	char	tmp[MAXLINE];
+	int		n, maxfd, stdineof;
 	fd_set	rset;
+	int		input_fd;
+	int		self_name_len, other_name_len;
 
+	input_fd = fileno(input);
+	stdineof = 0;
 	FD_ZERO(&rset);
+
+	if (type == SERVER)
+		heartbeat_serv(sockfd,3,3);
+	else
+		heartbeat_cli(sockfd,10,3);
 
 	for ( ; ; ) {
 		if (stdineof == 0)
-			FD_SET(input_fd, &rset);
+			FD_SET(input_fd,&rset);
 		FD_SET(sockfd, &rset);
+		maxfd = max(input_fd, sockfd);
 
-		if (select(maxfd + 1, &rset, NULL, NULL, NULL) < 0)
-			err_sys("select");
+re_select:
+		if (select(maxfd + 1, &rset, NULL, NULL, NULL) < 0){
+			if (errno == EINTR)
+				goto re_select;
+			else
+				err_sys("select");
+		}
 
 		if (FD_ISSET(sockfd, &rset)) {
 			if ( (n = read_retry_on_eintr(sockfd, buff, MAXLINE)) == 0) {
-				if (stdineof == 1) 
+				if (stdineof == 1) {
 					return;
-				else {
+				} else {
 					if (type == SERVER)
 						return;
-					else
-						err_sys("the opsite terminated prematurely");
+					err_quit("the other side terminated prematurely");
 				}
-			} 
-			if (write(fileno(stdout), buff, n) != n)
+			}
+
+			other_name_len = strlen(self_name);
+
+			bzero(&tmp,sizeof(tmp));
+			snprintf(tmp,7 + other_name_len,"\t\t\t\t\t%s: ", other_name);
+			memcpy(tmp + 7 + other_name_len, buff, n);
+
+			if (write(fileno(stdout),tmp,n + 7 + other_name_len) != (n + 7 + other_name_len))
 				err_sys("write");
-		} else if (FD_ISSET(input_fd, &rset)) {
+		} else if (FD_ISSET(input_fd,&rset)) {
 			if ( (n = read_retry_on_eintr(input_fd, buff, MAXLINE)) == 0) {
 				stdineof = 1;
 				FD_CLR(input_fd,&rset);
-				if (shutdown(input_fd, SHUT_WR) < 0)
+				if (shutdown(sockfd, SHUT_WR) < 0)
 					err_sys("shutdown");
 				continue;
 			}
 
 			if (writen(sockfd, buff, n) != n)
-				err_quit("writen sockfd error");
+				err_quit("writen error for sockfd");
 		}
 	}
 }
+
+//-----------------------------signal-------------------------------
+sig_func *my_signal(int signo,sig_func *func) {
+	struct sigaction act, oact;
+	act.sa_flags = 0;
+	act.sa_handler = func;
+	sigemptyset(&act.sa_mask);
+	
+	if (signo == SIGALRM) {
+#ifdef SA_INTERRUPT
+		act.sa_flags |= SA_INTERRUPT;
+#endif
+	} else {
+#ifdef SA_RESTART
+		act.sa_flags |= SA_RESTART;
+#endif
+	}
+
+	if (sigaction(signo,&act,&oact) < 0)
+		return SIG_ERR;
+	return oact.sa_handler;
+}
+
+
+//-------------------------------heartbeat---------------------------------
+
+static int serv_sockfd;
+static int cli_sockfd;
+static int cli_nsec;
+static int cli_maxnprobes;
+static int cli_nprobes;
+static void cli_sig_urg(int), cli_sig_alrm(int);
+
+static int serv_nsec;
+static int serv_maxnprobes;
+static int serv_nprobes;
+static void serv_sig_alrm(int), serv_sig_urg(int);
+
+void heartbeat_cli(int sockfd, int nsec, int maxnprobes) {
+	cli_sockfd = sockfd;
+	if ( (cli_nsec = nsec) < 1)
+		cli_nsec = 1;
+	if ( (cli_maxnprobes = maxnprobes) < cli_nsec)
+		cli_maxnprobes = cli_nsec;
+	cli_nprobes = 0;
+
+	if (my_signal(SIGURG,cli_sig_urg) == SIG_ERR)
+		err_sys("my_signal");
+	if (fcntl(cli_sockfd, F_SETOWN, getpid()) < 0)
+		err_sys("fcntl");
+
+	if (my_signal(SIGALRM,cli_sig_alrm) == SIG_ERR)
+		err_sys("my_signal");
+	alarm(cli_nsec);
+}
+
+static void cli_sig_urg(int signo) {
+	int		n;
+	char	c;
+
+	if ( (n = recv(cli_sockfd, &c, 1, MSG_OOB)) < 0)
+		if (errno != EWOULDBLOCK)
+			err_sys("recv error");
+	cli_nprobes = 0;
+}
+
+static void cli_sig_alrm(int signo) {
+	if (++cli_nprobes > cli_maxnprobes) {
+		fprintf(stderr, "server is unreachable\n");
+		exit(0);
+	} 
+	if (send(cli_sockfd,"1",1,MSG_OOB) < 0)
+		err_sys("send");
+	printf("client send %s\n","1");
+	alarm(cli_nsec);
+}
+
+void heartbeat_serv(int sockfd, int nsec, int maxnprobes) {
+	serv_sockfd = sockfd;
+	if ( (serv_nsec = nsec) < 1)
+		serv_nsec = 1;
+	if ( (serv_maxnprobes = maxnprobes) < serv_nsec)
+		serv_maxnprobes = serv_nsec;
+
+	if (my_signal(SIGURG,serv_sig_urg) == SIG_ERR)
+		err_sys("my_signal");
+	if (fcntl(serv_sockfd,F_SETOWN, getpid()) < 0)
+		err_sys("fcntl");
+
+	if (my_signal(SIGALRM, serv_sig_alrm) == SIG_ERR)
+		err_sys("my_signal");
+
+	alarm(serv_nsec);
+}
+
+static void serv_sig_alrm(int signo) {
+	if (++serv_nprobes > serv_maxnprobes) {
+		fprintf(stderr, "client is unreachable\n");
+		exit(0);
+	} 
+	alarm(serv_nsec);
+}
+
+static void serv_sig_urg(int signo) {
+	char	c;
+	int 	n;
+
+	if ( (n = recv(serv_sockfd, &c, 1, MSG_OOB)) < 0)
+		if (errno != EWOULDBLOCK)
+			err_sys("recv");
+	printf("server receive %c\n",c);
+
+	if (send(serv_sockfd,&c,1,MSG_OOB) < 0)
+		err_sys("send");
+	printf("server send %c\n",c);
+	serv_nprobes = 0;
+}
+
