@@ -168,9 +168,9 @@ void start_communication(enum type type, const char *self_name,const char *other
 	FD_ZERO(&rset);
 
 	if (type == SERVER)
-		heartbeat_serv(sockfd,3,3);
+		serv_heartbeat(sockfd,1,5);
 	else
-		heartbeat_cli(sockfd,10,3);
+		cli_heartbeat(sockfd,1,5);
 
 	for ( ; ; ) {
 		if (stdineof == 0)
@@ -245,95 +245,92 @@ sig_func *my_signal(int signo,sig_func *func) {
 
 //-------------------------------heartbeat---------------------------------
 
-static int serv_sockfd;
-static int cli_sockfd;
-static int cli_nsec;
-static int cli_maxnprobes;
-static int cli_nprobes;
-static void cli_sig_urg(int), cli_sig_alrm(int);
+static void cli_sigurg(int); 
+static void cli_sigalrm(int);
+static int cli_try_times, cli_query_sec, cli_max_try_times, cli_sockfd;
 
-static int serv_nsec;
-static int serv_maxnprobes;
-static int serv_nprobes;
-static void serv_sig_alrm(int), serv_sig_urg(int);
+static void serv_sigurg(int); 
+static void serv_sigalrm(int);
+static int serv_try_times, serv_query_sec, serv_max_try_times, serv_sockfd;
 
-void heartbeat_cli(int sockfd, int nsec, int maxnprobes) {
+void cli_heartbeat(int sockfd, int nsec, int max_try_times) {
+	if ( (cli_query_sec = nsec) < 1)
+		cli_query_sec = 1;
+	if ( (cli_max_try_times = max_try_times) < cli_query_sec)
+		cli_max_try_times = cli_query_sec;
+
+	if (my_signal(SIGURG,cli_sigurg) == SIG_ERR)
+		err_quit("my_signal error for SIGURG");
 	cli_sockfd = sockfd;
-	if ( (cli_nsec = nsec) < 1)
-		cli_nsec = 1;
-	if ( (cli_maxnprobes = maxnprobes) < cli_nsec)
-		cli_maxnprobes = cli_nsec;
-	cli_nprobes = 0;
-
-	if (my_signal(SIGURG,cli_sig_urg) == SIG_ERR)
-		err_sys("my_signal");
 	if (fcntl(cli_sockfd, F_SETOWN, getpid()) < 0)
 		err_sys("fcntl");
 
-	if (my_signal(SIGALRM,cli_sig_alrm) == SIG_ERR)
-		err_sys("my_signal");
-	alarm(cli_nsec);
+	if (my_signal(SIGALRM, cli_sigalrm) == SIG_ERR)
+		err_quit("my_signal error for SIGALRM");
+
+	cli_try_times = 0;
+	alarm(cli_query_sec);
 }
 
-static void cli_sig_urg(int signo) {
+static void cli_sigurg(int signo) {
 	int		n;
 	char	c;
-
 	if ( (n = recv(cli_sockfd, &c, 1, MSG_OOB)) < 0)
 		if (errno != EWOULDBLOCK)
-			err_sys("recv error");
-	cli_nprobes = 0;
+			err_sys("recv");
+	printf("client recvive %c\n", c);
+	cli_try_times = 0;
 }
 
-static void cli_sig_alrm(int signo) {
-	if (++cli_nprobes > cli_maxnprobes) {
+static void cli_sigalrm(int signo) {
+	if (++cli_try_times > cli_max_try_times) {
 		fprintf(stderr, "server is unreachable\n");
 		exit(0);
-	} 
-	if (send(cli_sockfd,"1",1,MSG_OOB) < 0)
+	}
+	if (send(cli_sockfd, "C", 1, MSG_OOB) < 0)
 		err_sys("send");
-	printf("client send %s\n","1");
-	alarm(cli_nsec);
+	printf("client send C\n");
+	alarm(cli_query_sec);
 }
 
-void heartbeat_serv(int sockfd, int nsec, int maxnprobes) {
+void serv_heartbeat(int sockfd, int nsec, int max_try_times) {
 	serv_sockfd = sockfd;
-	if ( (serv_nsec = nsec) < 1)
-		serv_nsec = 1;
-	if ( (serv_maxnprobes = maxnprobes) < serv_nsec)
-		serv_maxnprobes = serv_nsec;
+	if ( (serv_query_sec = nsec) < 1)
+		serv_query_sec = 1;
+	if ( (serv_max_try_times = max_try_times) < serv_query_sec)
+		serv_max_try_times = serv_query_sec;
 
-	if (my_signal(SIGURG,serv_sig_urg) == SIG_ERR)
-		err_sys("my_signal");
-	if (fcntl(serv_sockfd,F_SETOWN, getpid()) < 0)
+	if (my_signal(SIGURG, serv_sigurg) == SIG_ERR)
+		err_quit("my_signal error for SIGURG");
+	if (fcntl(serv_sockfd, F_SETOWN, getpid()) < 0)
 		err_sys("fcntl");
 
-	if (my_signal(SIGALRM, serv_sig_alrm) == SIG_ERR)
-		err_sys("my_signal");
+	if (my_signal(SIGALRM, serv_sigalrm) == SIG_ERR)
+		err_quit("my_signal error for SIGALRM");
 
-	alarm(serv_nsec);
+	serv_try_times = 0;
+	alarm(serv_query_sec);
 }
 
-static void serv_sig_alrm(int signo) {
-	if (++serv_nprobes > serv_maxnprobes) {
+static void serv_sigalrm(int signo) {
+	if (++serv_try_times > serv_max_try_times) {
 		fprintf(stderr, "client is unreachable\n");
 		exit(0);
-	} 
-	alarm(serv_nsec);
+	}
+	alarm(serv_query_sec);
 }
 
-static void serv_sig_urg(int signo) {
+static void serv_sigurg(int signo) {
+	int		n;
 	char	c;
-	int 	n;
 
 	if ( (n = recv(serv_sockfd, &c, 1, MSG_OOB)) < 0)
 		if (errno != EWOULDBLOCK)
 			err_sys("recv");
-	printf("server receive %c\n",c);
-
-	if (send(serv_sockfd,&c,1,MSG_OOB) < 0)
+	printf("server receive %c\n", c);
+	serv_try_times = 0;
+	if (send(serv_sockfd, &c, 1, MSG_OOB) < 0)
 		err_sys("send");
-	printf("server send %c\n",c);
-	serv_nprobes = 0;
-}
 
+	printf("server send %c\n", c);
+}

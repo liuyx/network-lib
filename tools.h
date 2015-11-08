@@ -27,12 +27,9 @@ ssize_t readn(int fd, void *ptr, size_t n);
 ssize_t writen(int fd, void *ptr, size_t n);
 ssize_t readline(int fd, void *ptr, size_t maxlen);
 
-void heartbeat_cli(int sockfd, int nsec, int maxnprobes);
 
-void heartbeat_serv(int sockfd, int nsec, int maxnprobes);
-
-
-void heartbeat(int sockfd, int nsec);
+void cli_heartbeat(int sockfd, int nsec, int max_try_times);
+void serv_heartbeat(int sockfd, int nsec, int max_try_times);
 
 enum type {
 	SERVER,CLIENT
