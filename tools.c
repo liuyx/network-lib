@@ -168,9 +168,9 @@ void start_communication(enum type type, const char *self_name,const char *other
 	FD_ZERO(&rset);
 
 	if (type == SERVER)
-		serv_heartbeat(sockfd,1,5);
+		serv_heartbeat(sockfd,HEART_BEAT_FREQUENCY,HEART_BEAR_MAX_TRY);
 	else
-		cli_heartbeat(sockfd,1,5);
+		cli_heartbeat(sockfd,HEART_BEAT_FREQUENCY,HEART_BEAR_MAX_TRY);
 
 	for ( ; ; ) {
 		if (stdineof == 0)
@@ -278,7 +278,6 @@ static void cli_sigurg(int signo) {
 	if ( (n = recv(cli_sockfd, &c, 1, MSG_OOB)) < 0)
 		if (errno != EWOULDBLOCK)
 			err_sys("recv");
-	printf("client recvive %c\n", c);
 	cli_try_times = 0;
 }
 
@@ -289,7 +288,6 @@ static void cli_sigalrm(int signo) {
 	}
 	if (send(cli_sockfd, "C", 1, MSG_OOB) < 0)
 		err_sys("send");
-	printf("client send C\n");
 	alarm(cli_query_sec);
 }
 
@@ -327,10 +325,7 @@ static void serv_sigurg(int signo) {
 	if ( (n = recv(serv_sockfd, &c, 1, MSG_OOB)) < 0)
 		if (errno != EWOULDBLOCK)
 			err_sys("recv");
-	printf("server receive %c\n", c);
 	serv_try_times = 0;
 	if (send(serv_sockfd, &c, 1, MSG_OOB) < 0)
 		err_sys("send");
-
-	printf("server send %c\n", c);
 }

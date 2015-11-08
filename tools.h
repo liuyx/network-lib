@@ -14,9 +14,12 @@
 #include <signal.h>
 
 #define MAXLINE 1024
-#define LISTNQ 1024
+#define LISTNQ 1024  // just a guess
 
 #define max(a,b)	((a) > (b) ? (a) : (b))
+
+#define HEART_BEAT_FREQUENCY 60		// the frequency that client and server query the other side's existence.
+#define HEART_BEAR_MAX_TRY   60 * 3 // the max time passed that the client and server will try to acquire the other side's existence, otherwide, it'll die!
 
 void err_sys(const char *fmt,...);
 void err_quit(const char *fmt,...);
