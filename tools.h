@@ -15,6 +15,12 @@
 
 #define DEBUG 
 
+#ifdef DEBUG
+	#define log(format,...) printf((format),##__VA_ARGS__)
+#else
+	#define log(format,...) 
+#endif
+
 #define MAXLINE 1024
 #define LISTNQ 1024  // just a guess
 

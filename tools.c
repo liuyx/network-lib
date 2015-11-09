@@ -278,9 +278,7 @@ static void cli_sigurg(int signo) {
 	if ( (n = recv(cli_sockfd, &c, 1, MSG_OOB)) < 0)
 		if (errno != EWOULDBLOCK)
 			err_sys("recv");
-#ifdef DEBUG
-		printf("receive %c\n",c);
-#endif
+	log("receive %c\n",c);
 	cli_try_times = 0;
 }
 
@@ -291,9 +289,7 @@ static void cli_sigalrm(int signo) {
 	}
 	if (send(cli_sockfd, "C", 1, MSG_OOB) < 0)
 		err_sys("send");
-#ifdef DEBUG
-		printf("send %s\n","C");
-#endif
+	log("send %s\n","C");
 	alarm(cli_query_sec);
 }
 
@@ -333,13 +329,9 @@ static void serv_sigurg(int signo) {
 	if ( (n = recv(serv_sockfd, &c, 1, MSG_OOB)) < 0)
 		if (errno != EWOULDBLOCK)
 			err_sys("recv");
-#ifdef DEBUG
-		printf("receive %c\n", c);
-#endif
+	log("receive %c\n", c);
 	serv_try_times = 0;
 	if (send(serv_sockfd, &c, 1, MSG_OOB) < 0)
 		err_sys("send");
-#ifdef DEBUG
-		printf("recvive %c\n", c);
-#endif
+	log("send %c\n", c);
 }

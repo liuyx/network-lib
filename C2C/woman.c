@@ -57,11 +57,11 @@ int main(int argc,char **argv){
 		if (getpeername(connfd, (struct sockaddr *)&servaddr, &socklen) < 0)
 			err_sys("getpeername");
 
-		printf("connect from %s: %d\n",inet_ntop(AF_INET,&servaddr.sin_addr,buff,sizeof(buff)), ntohs(servaddr.sin_port));
+		log("connect from %s: %d\n",inet_ntop(AF_INET,&servaddr.sin_addr,buff,sizeof(buff)), ntohs(servaddr.sin_port));
 
 		start_communication(SERVER, "server", "client", connfd, stdin);
 
-		printf("the other side is closed\n");
+		log("the other side is closed\n");
 
 		g_connfd = -1;
 
