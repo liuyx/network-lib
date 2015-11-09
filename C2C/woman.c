@@ -30,6 +30,12 @@ int main(int argc,char **argv){
 	if (setsockopt(sockfd,SOL_SOCKET, SO_KEEPALIVE, &on, sizeof(on)) < 0)
 		err_sys("setsockopt SO_KEEPALIVE");
 
+	struct linger linger;
+	linger.l_onoff = LINGER_ONOFF;
+	linger.l_linger = LINGER_LINGER;
+	if (setsockopt(sockfd, SOL_SOCKET, SO_LINGER, &linger, sizeof(linger)) < 0)
+		err_sys("setsockopt SO_LINGER");
+
 	if (bind(sockfd,(struct sockaddr *)&servaddr,sizeof(servaddr)) < 0)
 		err_sys("bind");
 
@@ -46,6 +52,8 @@ int main(int argc,char **argv){
 				err_sys("accept");
 		}
 
+		g_connfd = connfd;
+
 		if (getpeername(connfd, (struct sockaddr *)&servaddr, &socklen) < 0)
 			err_sys("getpeername");
 
@@ -54,6 +62,8 @@ int main(int argc,char **argv){
 		start_communication(SERVER, "server", "client", connfd, stdin);
 
 		printf("the other side is closed\n");
+
+		g_connfd = -1;
 
 		close(connfd);
 	}

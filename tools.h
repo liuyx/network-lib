@@ -13,6 +13,8 @@
 #include <fcntl.h>
 #include <signal.h>
 
+#define DEBUG 
+
 #define MAXLINE 1024
 #define LISTNQ 1024  // just a guess
 
@@ -20,8 +22,14 @@
 
 #define max(a,b)	((a) > (b) ? (a) : (b))
 
-#define HEART_BEAT_FREQUENCY 60		// the frequency that client and server query the other side's existence.
-#define HEART_BEAR_MAX_TRY   60 * 3 // the max time passed that the client and server will try to acquire the other side's existence, otherwide, it'll die!
+#define HEART_BEAT_FREQUENCY 1		                  // the frequency that client and server query the other side's existence.
+#define HEART_BEAR_MAX_TRY   HEART_BEAT_FREQUENCY * 3 // the max time passed that the client and server will try to acquire the other side's existence, otherwide, it'll die!
+
+// set linger
+#define LINGER_ONOFF 1
+#define LINGER_LINGER 3
+
+int g_connfd;
 
 void err_sys(const char *fmt,...);
 void err_quit(const char *fmt,...);
@@ -39,6 +47,7 @@ void serv_heartbeat(int sockfd, int nsec, int max_try_times);
 enum type {
 	SERVER,CLIENT
 };
+
 
 /**
   *

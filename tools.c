@@ -278,6 +278,9 @@ static void cli_sigurg(int signo) {
 	if ( (n = recv(cli_sockfd, &c, 1, MSG_OOB)) < 0)
 		if (errno != EWOULDBLOCK)
 			err_sys("recv");
+#ifdef DEBUG
+		printf("receive %c\n",c);
+#endif
 	cli_try_times = 0;
 }
 
@@ -288,6 +291,9 @@ static void cli_sigalrm(int signo) {
 	}
 	if (send(cli_sockfd, "C", 1, MSG_OOB) < 0)
 		err_sys("send");
+#ifdef DEBUG
+		printf("send %s\n","C");
+#endif
 	alarm(cli_query_sec);
 }
 
@@ -312,8 +318,10 @@ void serv_heartbeat(int sockfd, int nsec, int max_try_times) {
 
 static void serv_sigalrm(int signo) {
 	if (++serv_try_times > serv_max_try_times) {
-		fprintf(stderr, "client is unreachable\n");
-		exit(0);
+		if (g_connfd > 0) {
+			fprintf(stderr, "client is unreachable\n");
+			exit(0);
+		}
 	}
 	alarm(serv_query_sec);
 }
@@ -325,7 +333,13 @@ static void serv_sigurg(int signo) {
 	if ( (n = recv(serv_sockfd, &c, 1, MSG_OOB)) < 0)
 		if (errno != EWOULDBLOCK)
 			err_sys("recv");
+#ifdef DEBUG
+		printf("receive %c\n", c);
+#endif
 	serv_try_times = 0;
 	if (send(serv_sockfd, &c, 1, MSG_OOB) < 0)
 		err_sys("send");
+#ifdef DEBUG
+		printf("recvive %c\n", c);
+#endif
 }
