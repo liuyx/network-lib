@@ -3,6 +3,14 @@
 #include <time.h>
 #include <sys/select.h>
 #include <arpa/inet.h>
+#include <pthread.h>
+
+static void* run(void *arg) {
+	int connfd = *(int *)arg;
+	start_communication(SERVER, "server", "client", connfd, stdin);
+	printf("the other side is closed\n");
+	return NULL;
+}
 
 
 int main(int argc,char **argv){
@@ -11,6 +19,7 @@ int main(int argc,char **argv){
 	struct sockaddr_in servaddr;
 	socklen_t socklen;
 	const int on = 1;
+	pthread_t tid;
 
 	//if (daemon(0,0) < 0)
 	//	err_sys("daemonize");
@@ -51,11 +60,9 @@ int main(int argc,char **argv){
 
 		printf("connect from %s: %d\n",inet_ntop(AF_INET,&servaddr.sin_addr,buff,sizeof(buff)), ntohs(servaddr.sin_port));
 
-		start_communication(SERVER, "server", "client", connfd, stdin);
+		pthread_create(&tid, NULL, run, &connfd);
 
-		printf("the other side is closed\n");
-
-		close(connfd);
+		//close(connfd);
 	}
 	exit(0);
 }

@@ -16,6 +16,8 @@
 #define MAXLINE 1024
 #define LISTNQ 1024  // just a guess
 
+#define SERV_PORT	9877  // the port that the server listen to
+
 #define max(a,b)	((a) > (b) ? (a) : (b))
 
 #define HEART_BEAT_FREQUENCY 60		// the frequency that client and server query the other side's existence.
