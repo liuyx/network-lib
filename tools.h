@@ -21,15 +21,20 @@
 	#define log(format,...) 
 #endif
 
+#ifndef bzero
+#define bzero(buff,size)	memset(buff,0,size);
+#endif
+
 #define MAXLINE 1024
 #define LISTNQ 1024  // just a guess
 
 #define SERV_PORT	9877  // the port that the server listen to
+#define SERV_PORT_STR "9877"
 
 #define max(a,b)	((a) > (b) ? (a) : (b))
 
-#define HEART_BEAT_FREQUENCY 1		                  // the frequency that client and server query the other side's existence.
-#define HEART_BEAR_MAX_TRY   HEART_BEAT_FREQUENCY * 3 // the max time passed that the client and server will try to acquire the other side's existence, otherwide, it'll die!
+#define HEART_BEAT_FREQUENCY (45 * 6)		                  // the frequency that client and server query the other side's existence.
+#define HEART_BEAR_MAX_TRY   (HEART_BEAT_FREQUENCY * 3)       // the max time passed that the client and server will try to acquire the other side's existence, otherwide, it'll die!
 
 // set linger
 #define LINGER_ONOFF 1
@@ -40,7 +45,12 @@ int g_connfd;
 void err_sys(const char *fmt,...);
 void err_quit(const char *fmt,...);
 
-int tcp_connect(const char *hot,const char *service);
+int tcp_connect(const char *host,const char *service);
+int	udp_connect(const char *host, const char *service);
+
+int tcp_listen(const char *host, const char *service, socklen_t *lenp);
+int	udp_server(const char *host, const char *service, socklen_t *lenp);
+
 
 ssize_t readn(int fd, void *ptr, size_t n);
 ssize_t writen(int fd, void *ptr, size_t n);
@@ -52,6 +62,10 @@ void serv_heartbeat(int sockfd, int nsec, int max_try_times);
 
 enum type {
 	SERVER,CLIENT
+};
+
+enum transport_protocol_t {
+	TCP,UDP,SCTP
 };
 
 

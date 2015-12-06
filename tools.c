@@ -29,32 +29,107 @@ void err_quit(const char *fmt, ...) {
 	exit(1);
 }
 
-int tcp_connect(const char *host,const char *service) {
-	int sockfd;
-	struct addrinfo hint, *res, *ressave;
+static inline char * get_log_prefix(int socktype) {
+	if (socktype == SOCK_STREAM)
+		return "tcp_connect";
+	else if (socktype == SOCK_DGRAM)
+		return "udp_connect";
+	return "";
+}
 
-	bzero(&hint,sizeof(struct addrinfo));
+static inline int protocol_connect(const char *host, const char *service,int socktype) {
+	int		sockfd, ret;
+	struct  addrinfo hint, *res, *ressave;
+
+	bzero(&hint, sizeof(hint));
 	hint.ai_family = AF_UNSPEC;
-	hint.ai_socktype = SOCK_STREAM;
-	
-	if (getaddrinfo(host,service,&hint,&res) < 0)
-		err_sys("getaddrinfo");
+	hint.ai_socktype = socktype;
+
+	if ( ( ret = getaddrinfo(host,service,&hint,&res)) < 0) 
+		err_quit("%s error for %s %s: %s", get_log_prefix(socktype), host, service, gai_strerror(ret));
+		
+	ressave = res;
+
+	do {
+		if ( (sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol)) < 0)
+			continue;
+		if (connect(sockfd, res->ai_addr, res->ai_addrlen) == 0)
+			break;
+
+		if (close(sockfd) < 0)
+			err_sys("close");
+	} while ( (res = res->ai_next) != NULL);
+
+	if (res == NULL) {
+		err_sys("%s error for %s, %s", get_log_prefix(socktype), host, service);
+	}
+
+	freeaddrinfo(ressave);
+
+	return sockfd;
+
+}
+
+int udp_connect(const char *host, const char *service) {
+	return protocol_connect(host,service,SOCK_DGRAM);
+}
+
+int tcp_connect(const char *host,const char *service) {
+	return protocol_connect(host,service,SOCK_STREAM);
+}
+
+static inline int transport_protocol_server(const char *host, const char *service, socklen_t *lenp, int socktype) {
+	int		sockfd, n;
+	const	int on = 1;
+	struct	addrinfo hint, *res, *ressave;
+
+	bzero(&hint, sizeof(hint));
+	hint.ai_family = AF_UNSPEC;
+	hint.ai_socktype = socktype;
+	hint.ai_flags = AI_PASSIVE;
+
+	if ( (n = getaddrinfo(host, service, &hint, &res)) < 0) 
+		err_quit("%s error for %s, %s: %s", get_log_prefix(SOCK_STREAM), host, service, gai_strerror(n));
 
 	ressave = res;
 
 	do {
-		if ( (sockfd = socket(res->ai_family,res->ai_socktype,res->ai_protocol)) < 0)
+		if ( (sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol)) < 0)
 			continue;
-		if (connect(sockfd,res->ai_addr,res->ai_addrlen) == 0)
+
+		if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0)
+			err_sys("setsockopt");
+
+		if (bind(sockfd, res->ai_addr, res->ai_addrlen) == 0)
 			break;
-	} while ( (res = res->ai_next) != NULL);
+
+		if (close(sockfd) < 0)
+			err_sys("close");
+	} while( (res = res->ai_next) != NULL);
+
+	if (res == NULL)
+		err_sys("tcp_listen error for %s, %s", host, service);
+
+	if (socktype == SOCK_STREAM) {
+		if (listen(sockfd, LISTNQ) != 0)
+			err_sys("listen");
+	}
+
+	if (lenp)
+		*lenp = res->ai_addrlen;
 
 	freeaddrinfo(ressave);
 
-	if (res == NULL) 
-		err_quit("tcp_connect can't connect");
-
 	return sockfd;
+
+}
+
+int udp_server(const char *host, const char *service, socklen_t *lenp) {
+	return transport_protocol_server(host, service, lenp, SOCK_DGRAM);
+}
+
+int tcp_listen(const char *host, const char *service, socklen_t *lenp) {
+	return transport_protocol_server(host, service, lenp, SOCK_STREAM);
 }
 
 ssize_t readn(int fd, void *buf, size_t n) {

@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -o 
+CFLAGS = -O2 -g -o 
 time-client:
 	$(CC) C2C/client.c tools.c $(CFLAGS) out/client
 
@@ -14,3 +14,6 @@ man:
 
 woman:
 	$(CC) C2C/woman.c tools.c $(CFLAGS) out/woman
+
+udp-server:
+	$(CC) C2C/udp-server.c tools.c $(CFLAGS) out/udp-server
