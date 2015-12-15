@@ -20,3 +20,9 @@ udp-server:
 
 udp-client:
 	$(CC) C2C/udp-client.c tools.c $(CFLAGS) out/udp-server
+
+us:
+	$(CC) C2C/us.c tools.c $(CFLAGS) out/us
+
+uc:
+	$(CC) C2C/uc.c tools.c $(CFLAGS) out/uc

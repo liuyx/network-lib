@@ -1,50 +1,66 @@
 #include "../tools.h"
 
-void str_echo(int sockfd,struct sockaddr *cliaddr, FILE *fp);
+int main(int argc, char **argv) {
+	const	char *host, *service;
+	if (argc < 2)
+		err_quit("usage: %s <hostname> <service>",argv[0]);
+	else if (argc == 2) {
+		host = NULL;
+		service = argv[1];
+	} else if (argc == 3) {
+		host = argv[1];
+		service = argv[2];
+	}
 
-int main() {
-	int		sockfd, n;
-	struct	sockaddr_in servaddr;
-	struct	addrinfo hint, *res, *ressave;
-	socklen_t len;
+	struct addrinfo hints, *res, *ressave;
 
-	bzero(&hint, sizeof(hint));
-	hint.ai_family = AF_UNSPEC;
-	hint.ai_socktype = SOCK_DGRAM;
-	hint.ai_flags = AI_PASSIVE;
+	bzero(&hints, sizeof(hints));
+	hints.ai_flags = AI_PASSIVE;
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_DGRAM;
 
+	int	n;
 
-	if ( (n = getaddrinfo(NULL,SERV_PORT_STR,&hint,&res)) < 0)
-		err_sys("getaddrinfo %s\n",gai_strerror(n));
+	if ( (n = getaddrinfo(host, service, &hints, &res)) < 0)
+		err_sys("getaddrinfo error for %s, %s: %s",host, service, gai_strerror(n));
 
 	ressave = res;
+	int		sockfd;
+
+	const	int on = 1;
 
 	do {
-		if ( (sockfd = socket(res->ai_family,res->ai_socktype,res->ai_protocol)) < 0)
+		if ( (sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol)) < 0)
 			continue;
+
+		if(setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0)
+			err_sys("setsockopt");
+
 		if (bind(sockfd, res->ai_addr, res->ai_addrlen) == 0)
 			break;
+
+		close(sockfd);
+
 	} while ( (res = res->ai_next) != NULL);
 
 	if (res == NULL)
-		err_quit("socket error");
+		err_sys("getaddrinfo error for %s, %s", host, service);
 
 	freeaddrinfo(ressave);
 
-	str_echo(sockfd,res->ai_addr, stdout);
+	char	recvline[MAXLINE + 1];
+	struct	sockaddr_storage cliaddr;
+	socklen_t socklen = sizeof(cliaddr);
+	while (1) {
+		if ( (n = recvfrom(sockfd, recvline, sizeof(recvline), 0, (struct sockaddr *)&cliaddr, &socklen)) < 0)
+			err_sys("recvfrom");
 
-	return 0;
-}
+		recvline[n] = 0;
 
-void str_echo(int sockfd, struct sockaddr *cliaddr, FILE *fp) {
-	char recvline[MAXLINE + 1];
-	socklen_t len;
-	int	n;
-
-	while ( ( n = recvfrom(sockfd, recvline, MAXLINE, 0, cliaddr, &len) > 0)) {
-		writen(sockfd, recvline, n);
+		if (sendto(sockfd, recvline, n, 0, (struct sockaddr *)&cliaddr, socklen) != n)
+			err_sys("sendto");
 	}
 
-	if (n < 0)
-		err_sys("recvfrom");
+
+	exit(0);
 }
