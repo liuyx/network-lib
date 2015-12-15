@@ -17,3 +17,6 @@ woman:
 
 udp-server:
 	$(CC) C2C/udp-server.c tools.c $(CFLAGS) out/udp-server
+
+udp-client:
+	$(CC) C2C/udp-client.c tools.c $(CFLAGS) out/udp-server

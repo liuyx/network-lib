@@ -1,4 +1,4 @@
-#include "./tools.h"
+#include "../tools.h"
 #include <stdlib.h>
 #include <sys/socket.h>
 
@@ -9,5 +9,9 @@ int main(int argc, char *argv[]) {
 	const char *host = argv[1];
 	const char *service = argv[2];
 	int	  sockfd = udp_connect(host,service);
+
+	start_communication(CLIENT,"client","server",sockfd, stdin);
+
+	return 0;
 
 }

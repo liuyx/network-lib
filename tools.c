@@ -100,8 +100,10 @@ static inline int transport_protocol_server(const char *host, const char *servic
 		if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0)
 			err_sys("setsockopt");
 
-		if (bind(sockfd, res->ai_addr, res->ai_addrlen) == 0)
-			break;
+		if (socktype == SOCK_STREAM) {
+			if (bind(sockfd, res->ai_addr, res->ai_addrlen) == 0)
+				break;
+		}
 
 		if (close(sockfd) < 0)
 			err_sys("close");
@@ -132,6 +134,11 @@ int tcp_listen(const char *host, const char *service, socklen_t *lenp) {
 	return transport_protocol_server(host, service, lenp, SOCK_STREAM);
 }
 
+#ifdef MSG_WAITALL
+ssize_t readn(int fd, void *buf, size_t n) {
+	recv(fd, buf, n, MSG_WAITALL);
+}
+#else
 ssize_t readn(int fd, void *buf, size_t n) {
 	size_t nleft = n;
 	char *ptr = buf;
@@ -152,6 +159,7 @@ ssize_t readn(int fd, void *buf, size_t n) {
 
 	return n - nleft;
 }
+#endif
 
 ssize_t writen(int fd, void *buf, size_t n) {
 	ssize_t nwrite;
