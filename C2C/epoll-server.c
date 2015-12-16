@@ -25,7 +25,7 @@ static void str_echo(int sockfd);
 static void err_sys(const char *msg,...);
 static void err_quit(const char *msg,...);
 
-#define MAX_CONN 64
+#define MAX_CONN 1024
 #define MAXLINE 1024
 
 int main(int argc, char **argv) {
@@ -79,8 +79,11 @@ int main(int argc, char **argv) {
 				continue;
 			} else if (events[i].data.fd == sockfd) {
 				for ( ; ; ) {
-					if ( (connfd = accept(sockfd, (SA *)&cliaddr, &socklen)) < 0)
+					if ( (connfd = accept(sockfd, (SA *)&cliaddr, &socklen)) < 0) {
+						if (errno == EINTR || errno == EWOULDBLOCK)
+							break;
 						err_sys("accept");
+					}
 
 					make_socket_nonblock(connfd);
 					
@@ -145,21 +148,26 @@ static void make_socket_nonblock(int sockfd) {
 static void str_echo(int sockfd) {
 	char	recvline[MAXLINE + 1];
 	int		n;
+	size_t	done = 0;
 
 	while (1) {
 		if ( (n = read(sockfd, recvline, sizeof(recvline))) < 0) {
 			if (errno == EINTR || errno == EAGAIN)
-				continue;
-			err_sys("read");
+				break;
+			done = 1;
 		} else if (n == 0) {
+			done = 1;
+			break;
+		}
+
+		if (write(sockfd, recvline, n) != n) {
+			err_sys("write");
+		}
+
+		if (done) {
 			syslog(LOG_PID | LOG_USER, "the client is terminated\n");
 			close(sockfd);
-			break;
-		} else {
-			if (write(sockfd, recvline, n) != n) {
-				err_sys("write");
-			}
-			break;
+			close(sockfd);
 		}
 	}
 }
