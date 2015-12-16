@@ -66,6 +66,8 @@ int main(int argc, char **argv) {
 	int connfd;
 	struct sockaddr_storage cliaddr;
 	socklen_t socklen = sizeof(cliaddr);
+	char client_host[512];
+	char client_port[32];
 
 	for ( ; ; ) {
 		if ( (n = epoll_wait(epollfd, events, MAX_CONN, -1)) < 0)
@@ -86,6 +88,10 @@ int main(int argc, char **argv) {
 					}
 
 					make_socket_nonblock(connfd);
+
+					if (getnameinfo((SA *)&cliaddr,socklen,client_host,sizeof(client_host),client_port,sizeof(client_port),0) == 0) {
+						syslog(LOG_PID | LOG_USER, "come a connection for %s:%s",client_host,client_port);
+					}
 					
 					event.data.fd = connfd;
 					event.events = EPOLLIN | EPOLLET;
