@@ -1,10 +1,12 @@
 #include <stdio.h>
 
 int main() {
-#ifdef HAVE_BZEO
-	printf("epoll\n");
+#ifdef __linux__
+	printf("Linux\n");
+#elif defined(__APPLE__)
+	printf("mac\n");
 #else
-	printf("Other\n");
+	printf("other\n");
 #endif
 	return 0;
 }
