@@ -1,7 +1,7 @@
 #include <stdio.h>
 
 int main() {
-#ifdef __linux__
+#ifdef BZEO
 	printf("Linux\n");
 #elif defined(__APPLE__)
 	printf("mac\n");

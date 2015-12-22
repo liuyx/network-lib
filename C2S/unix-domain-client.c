@@ -1,11 +1,5 @@
-#include <stdio.h>
-#include <stdlib.h>
+#include "../tools.h"
 #include <sys/un.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <string.h>
-
 #define MAXLINE 1024
 
 #define PATH "/tmp/unix-domain"
@@ -23,16 +17,24 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 
+	bind(sockfd,(SA *)&cliaddr,sizeof(cliaddr));
+
 	len = sizeof(cliaddr);
 	connect(sockfd, (struct sockaddr *)&cliaddr,len);
+
+
+	//start_communication(CLIENT,"client","server",sockfd,stdin);
+
+
 	int 	n;
 	char	sendline[MAXLINE], recvline[MAXLINE];
 		
 	while (fgets(sendline, MAXLINE, stdin) != NULL) {
+		printf("write %s\n",sendline);
 		write(sockfd, sendline, strlen(sendline));
 
 		n = read(sockfd, recvline, MAXLINE);
-		recvline[n] = 0;
+		printf("recive %s\n",recvline);
 		fputs(recvline, stdout);
 	}
 

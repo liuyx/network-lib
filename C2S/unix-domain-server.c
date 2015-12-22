@@ -1,10 +1,6 @@
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <sys/socket.h>
+#include "../tools.h"
+
 #include <sys/un.h>
-#include <string.h>
-#include <errno.h>
 
 #define PATH "/tmp/unix-domain"
 #define MAXLINE 1024
@@ -27,36 +23,38 @@ int main(int argc, char **argv) {
 
 	bind(sockfd, (struct sockaddr *)&addr1, SUN_LEN(&addr1));
 
-	listen(sockfd, SOMAXCONN);
-	int		connfd;
+	epoll_server(sockfd,str_echo);
 
-	for ( ; ; ) {
-		len = sizeof(cliaddr);
+	//listen(sockfd, SOMAXCONN);
+	//int		connfd;
 
-		if ( (connfd = accept(sockfd, (struct sockaddr *)&cliaddr, &len)) < 0) {
-			if (errno == EINTR)
-				continue;
-			else {
-				perror("accept");
-				exit(1);
-			}
-		}
+	//for ( ; ; ) {
+	//	len = sizeof(cliaddr);
 
-		char	recvline[MAXLINE];
-		int		n;
-		struct	sockaddr_un cliaddr;
-		while (1) {
-			if ( (n = read(connfd, recvline, MAXLINE)) > 0) {
-				recvline[n] = 0;
-				write(connfd, recvline, n);
-			}
+	//	if ( (connfd = accept(sockfd, (struct sockaddr *)&cliaddr, &len)) < 0) {
+	//		if (errno == EINTR)
+	//			continue;
+	//		else {
+	//			perror("accept");
+	//			exit(1);
+	//		}
+	//	}
 
-			if (n < 0) {
-				perror("read");
-				exit(1);
-			}
-		}
+	//	char	recvline[MAXLINE];
+	//	int		n;
+	//	struct	sockaddr_un cliaddr;
+	//	while (1) {
+	//		if ( (n = read(connfd, recvline, MAXLINE)) > 0) {
+	//			recvline[n] = 0;
+	//			write(connfd, recvline, n);
+	//		}
 
-	}
+	//		if (n < 0) {
+	//			perror("read");
+	//			exit(1);
+	//		}
+	//	}
+	//}
 
+	return 0;
 }
