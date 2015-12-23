@@ -15,9 +15,8 @@
 
 #include <syslog.h>
 
-#ifdef __linux__
-#include <sys/epoll.h>
-#endif
+#include <sys/un.h>  /* for unix domain socket */
+#include <sys/stat.h> /* for stat */
 
 #define DEBUG 
 
@@ -104,5 +103,7 @@ void start_communication(enum type, const char *self_name, const char *other_nam
 
 // for echo test
 void str_echo(int fd);
+
+void str_cli(int sockfd, FILE *fp);
 
 #endif

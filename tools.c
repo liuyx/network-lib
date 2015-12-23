@@ -51,6 +51,8 @@ void make_fd_nonblock(int fd) {
 		err_sys("fcntl");
 }
 
+#ifdef __linux__
+#include <sys/epoll.h>
 void epoll_server(int listenfd,void (*callback)(int)) {
 	int		epollfd, n, i;
 	struct	epoll_event event, *events;
@@ -64,9 +66,6 @@ void epoll_server(int listenfd,void (*callback)(int)) {
 	event.events = EPOLLIN | EPOLLET;
 	if (epoll_ctl(epollfd, EPOLL_CTL_ADD, listenfd, &event) < 0)
 		err_sys("epoll_ctl");
-
-	//if (listen(listenfd,SOMAXCONN) < 0)
-	//	err_sys("listen");
 
 	if ( (events = calloc(MAX_CONN, sizeof(struct epoll_event))) == NULL)
 		err_sys("calloc");
@@ -115,6 +114,7 @@ void epoll_server(int listenfd,void (*callback)(int)) {
 		}
 	}
 }
+#endif
 
 static inline int protocol_connect(const char *host, const char *service,int socktype) {
 	int		sockfd, ret;
@@ -528,3 +528,69 @@ void str_echo(int sockfd) {
 	}
 }
 
+#ifdef __APPLE__
+#include <sys/time.h>
+#include <sys/event.h>
+void str_cli(int sockfd, FILE *fp) {
+	int		kq, nchanges, n, i, stdineof, isfile;
+	struct	kevent keys[2];
+	struct	timespec ts;
+	struct	stat st;
+	char	buf[MAXLINE];
+
+	isfile = ((fstat(fileno(fp),&st) == 0) &&
+		      (st.st_mode & S_IFMT) == S_IFREG);
+
+	if ( (kq = kqueue()) < 0)
+		err_sys("kqueue");
+
+	EV_SET(&keys[0],sockfd,EVFILT_READ,EV_ADD,0,0,NULL);
+	EV_SET(&keys[1],fileno(fp),EVFILT_READ,EV_ADD,0,0,NULL);
+
+	ts.tv_nsec = ts.tv_sec = 0;
+	if (kevent(kq,keys,2,NULL,0,&ts) < 0)
+		err_sys("kevent");
+
+	for ( ; ; ) {
+		if ( (nchanges = kevent(kq, NULL, 0, keys, 2, &ts)) < 0)
+			err_sys("kevent");
+
+		for (i = 0; i < nchanges; i++) {
+			if (keys[i].ident == sockfd) {
+				if ( (n = read(sockfd,buf,sizeof(buf))) < 0)
+					err_sys("read");
+				else if (n == 0) {
+					if (stdineof == 1)
+						break;
+					else
+						err_quit("client terminated prematurely");
+				} else {
+					if (write(fileno(stdout),buf,n) != n)
+						err_sys("write");
+				}
+			} else if (keys[i].ident == fileno(fp)) {
+				if ( (n = read(fileno(fp), buf, sizeof(buf))) < 0) 
+					err_sys("read");
+				else if (n == 0 || (isfile && keys[i].data == n)) {
+					stdineof = 1;
+					if (shutdown(sockfd, SHUT_WR) < 0) 
+						err_sys("shutdown");
+					keys[i].flags = EV_DELETE;
+					if (kevent(kq,&keys[i],1,NULL,0,&ts) < 0)
+						err_sys("kevent");
+					continue;
+				} else {
+					if (writen(sockfd,buf,n) != n) 
+						err_quit("writen error for sockfd %d\n",sockfd);
+				}
+			}
+		}
+	}
+}
+#elif defined(__linux__)
+void str_cli(int sockfd, FILE *fp) {
+}
+#else
+void str_cli(int sockfd, FILE *fp) {
+}
+#endif
