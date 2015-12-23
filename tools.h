@@ -13,6 +13,12 @@
 #include <fcntl.h>
 #include <signal.h>
 
+#include <syslog.h>
+
+#ifdef __linux__
+#include <sys/epoll.h>
+#endif
+
 #define DEBUG 
 
 #ifdef DEBUG
@@ -27,6 +33,7 @@
 
 #define MAXLINE 1024
 #define LISTNQ 1024  // just a guess
+#define MAX_CONN 1024
 
 #define SERV_PORT	9877  // the port that the server listen to
 #define SERV_PORT_STR "9877"
@@ -39,6 +46,14 @@
 // set linger
 #define LINGER_ONOFF 1
 #define LINGER_LINGER 3
+
+typedef struct sockaddr SA;
+
+//-----------------------NON Block IO------------------------------
+void make_fd_nonblock(int fd);
+
+void epoll_server(int listenfd, void (*callback)(int));
+
 
 int g_connfd;
 
@@ -68,6 +83,8 @@ enum transport_protocol_t {
 	TCP,UDP,SCTP
 };
 
+void make_fd_nonblock(int fd);
+
 
 /**
   *
@@ -84,5 +101,8 @@ sig_func *my_signal(int signo, sig_func *func);
  * start communication
  */
 void start_communication(enum type, const char *self_name, const char *other_name, int sockfd, FILE *fp);
+
+// for echo test
+void str_echo(int fd);
 
 #endif

@@ -37,6 +37,85 @@ static inline char * get_log_prefix(int socktype) {
 	return "";
 }
 
+
+//--------------------------------------nonblock IO-----------------------------------------
+
+void make_fd_nonblock(int fd) {
+	int		val;
+	if ( (val = fcntl(fd, F_GETFL, 0)) < 0)
+		err_sys("fcntl");
+
+	val |= O_NONBLOCK;
+
+	if (fcntl(fd, F_SETFL, val) < 0)
+		err_sys("fcntl");
+}
+
+void epoll_server(int listenfd,void (*callback)(int)) {
+	int		epollfd, n, i;
+	struct	epoll_event event, *events;
+
+	make_fd_nonblock(listenfd);
+
+	if ( (epollfd = epoll_create1(0)) < 0)
+		err_sys("epoll_create1");
+
+	event.data.fd = listenfd;
+	event.events = EPOLLIN | EPOLLET;
+	if (epoll_ctl(epollfd, EPOLL_CTL_ADD, listenfd, &event) < 0)
+		err_sys("epoll_ctl");
+
+	//if (listen(listenfd,SOMAXCONN) < 0)
+	//	err_sys("listen");
+
+	if ( (events = calloc(MAX_CONN, sizeof(struct epoll_event))) == NULL)
+		err_sys("calloc");
+
+	int connfd;
+	struct sockaddr_storage cliaddr;
+	socklen_t socklen = sizeof(cliaddr);
+	char client_host[512];
+	char client_port[32];
+
+	for ( ; ; ) {
+		if ( (n = epoll_wait(epollfd, events, MAX_CONN, -1)) < 0) 
+			err_sys("epoll_wait");
+		
+		for (i = 0; i < n; i++) {
+			if ((events[i].events & EPOLLERR) ||
+					(events[i].events & EPOLLHUP) ||
+					(!(events[i].events & EPOLLIN))) {
+				syslog(LOG_PID | LOG_USER, "listenfd = %d error\n",events[i].data.fd);
+				close(events[i].data.fd);
+				continue;
+			} else if (events[i].data.fd == listenfd) {
+				for ( ; ; ) {
+					if ( (connfd = accept(listenfd, (SA *)&cliaddr, &socklen)) < 0) {
+						if (errno == EINTR || errno == EWOULDBLOCK)
+							break;
+						err_sys("accept");
+					}
+
+					make_fd_nonblock(connfd);
+
+					if (getnameinfo((SA *)&cliaddr, socklen, client_host, sizeof(client_host), client_port, sizeof(client_port), 0) == 0) {
+						syslog(LOG_PID | LOG_USER, "come a connection for %s:%s",client_host,client_port);
+					}
+
+					event.data.fd = connfd;
+					event.events = EPOLLIN | EPOLLET;
+					if (epoll_ctl(epollfd, EPOLL_CTL_ADD, connfd, &event) < 0)
+						err_sys("epoll_ctl");
+
+					break;
+				}
+			} else {
+				callback(events[i].data.fd);
+			}
+		}
+	}
+}
+
 static inline int protocol_connect(const char *host, const char *service,int socktype) {
 	int		sockfd, ret;
 	struct  addrinfo hint, *res, *ressave;
@@ -248,10 +327,12 @@ void start_communication(enum type type, const char *self_name,const char *other
 	stdineof = 0;
 	FD_ZERO(&rset);
 
+#ifdef HAVE_HEART_BEAT
 	if (type == SERVER)
 		serv_heartbeat(sockfd,HEART_BEAT_FREQUENCY,HEART_BEAR_MAX_TRY);
 	else
 		cli_heartbeat(sockfd,HEART_BEAT_FREQUENCY,HEART_BEAR_MAX_TRY);
+#endif
 
 	for ( ; ; ) {
 		if (stdineof == 0)
@@ -416,3 +497,34 @@ static void serv_sigurg(int signo) {
 		err_sys("send");
 	log("send %c\n", c);
 }
+
+//-----------------------------------------test------------------------------------
+
+
+void str_echo(int sockfd) {
+	char	recvline[MAXLINE + 1];
+	int		n;
+	size_t	done = 0;
+
+	while (1) {
+		if ( (n = read(sockfd, recvline, sizeof(recvline))) < 0) {
+			if (errno == EINTR || errno == EAGAIN)
+				break;
+			done = 1;
+		} else if (n == 0) {
+			done = 1;
+			break;
+		}
+
+		if (write(sockfd, recvline, n) != n) {
+			err_sys("write");
+		}
+
+		if (done) {
+			syslog(LOG_PID | LOG_USER, "the client is terminated\n");
+			close(sockfd);
+			close(sockfd);
+		}
+	}
+}
+
