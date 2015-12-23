@@ -1,0 +1,34 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/Users/zwz/work/network-lib/network-lib/C2C/mcast/mcast.c
+mcast.h
+/Users/zwz/work/network-lib/network-lib/C2C/mcast/mcast.h
+stdio.h
+-
+stdlib.h
+-
+unistd.h
+-
+strings.h
+-
+errno.h
+-
+netdb.h
+-
+net/if.h
+-
+stdarg.h
+-
+
+/Users/zwz/work/network-lib/network-lib/C2C/mcast/mcast.h
+sys/types.h
+-
+sys/socket.h
+-
+
