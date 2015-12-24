@@ -216,7 +216,7 @@ int udp_client(const char *host, const char *serv, SA **saptr, socklen_t *lenp) 
 	struct	addrinfo hints, *res, *ressave;
 
 	bzero(&hints,sizeof(struct addrinfo));
-	hints.sin_family = AF_UNSPEC;
+	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_DGRAM;
 
 	if ( (n = getaddrinfo(host,serv,&hints,&res)) != 0) 
@@ -621,6 +621,66 @@ void str_cli(int sockfd, FILE *fp) {
 }
 #elif defined(__linux__)
 void str_cli(int sockfd, FILE *fp) {
+	int		epollfd, nchanges, i, stdineof, n;
+	struct	epoll_event event, events[2];
+	char	buff[MAXLINE];
+	struct	stat st;
+
+	make_fd_nonblock(sockfd);
+	make_fd_nonblock(fileno(fp));
+
+	if ( (epollfd = epoll_create1(0)) == 0) 
+		err_sys("epoll_create1 error");
+
+	event.data.fd = sockfd;
+	event.events = EPOLLIN | EPOLLET;
+	if (epoll_ctl(epollfd, EPOLL_CTL_ADD, sockfd, &event) < 0)
+		err_sys("epoll_ctl");
+
+	event.data.fd = fileno(fp);
+	event.events = EPOLLIN | EPOLLET;
+	if (epoll_ctl(epollfd, EPOLL_CTL_ADD, fileno(fp), &event) < 0)
+		err_sys("epoll_ctl error for fp: %d",fileno(fp));
+
+	for ( ; ; ) {
+		if ( (nchanges = epoll_wait(epollfd, events, 2, -1)) < 0) 
+			err_sys("epoll_wait");
+
+		for (i = 0; i < nchanges; i++) {
+			if (events[i].data.fd == sockfd) {
+				if ( (n = read(sockfd, buff, sizeof(buff))) < 0) {
+					if (errno == EWOULDBLOCK || errno == EINTR)
+						break;
+					err_sys("read sockfd error");
+				} else if (n == 0) {
+					if (stdineof)
+						break;
+					err_quit("server terminated prematurely");
+				}
+				if (write(fileno(stdout),buff,n) != n) {
+					err_sys("write stdout error");
+				}
+			} else if (events[i].data.fd == fileno(fp)) {
+				if ( (n = read(fileno(fp), buff, sizeof(buff))) < 0) {
+					if (errno == EWOULDBLOCK || errno == EINTR)
+						break;
+					err_sys("read %d error", fileno(fp));
+				} else if (n == 0) {
+					stdineof = 1;
+					if (shutdown(sockfd, SHUT_WR) < 0) 
+						err_sys("shutdown error for sockfd: %d\n",sockfd);
+
+					event.data.fd = fileno(fp);
+					event.events = EPOLLIN | EPOLLET;
+					if (epoll_ctl(epollfd, EPOLL_CTL_DEL, fileno(fp), &event) < 0)
+						err_sys("epoll_ctl delete error for fp: %d",fileno(fp));
+				} else {
+					if (writen(sockfd, buff, n) != n)
+						err_quit("writen for sockfd = %d error", sockfd);
+				}
+			}
+		}
+	}
 }
 #else
 void str_cli(int sockfd, FILE *fp) {
