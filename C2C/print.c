@@ -1,12 +1,14 @@
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 
 int main() {
-#ifdef BZEO
-	printf("Linux\n");
-#elif defined(__APPLE__)
-	printf("mac\n");
+#ifdef IP_ADD_MEMBERSHIP
+	printf("IP_ADD_MEMBERSHIP\n");
+#elif defined (MCAST_JOIN_GROUP)
+	printf("MCAST_JOIN_GROUP\n");
 #else
-	printf("other\n");
+	printf("Other\n");
 #endif
 	return 0;
 }

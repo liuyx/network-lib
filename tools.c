@@ -682,6 +682,12 @@ void str_cli(int sockfd, FILE *fp) {
 		}
 	}
 }
+#elif defined(SOLARIS)
+void str_cli(int sockfd, FILE *fp) {
+}
+#elif defined(WIN32)
+void str_cli(int sockfd, FILE *fp) {
+}
 #else
 void str_cli(int sockfd, FILE *fp) {
 }
